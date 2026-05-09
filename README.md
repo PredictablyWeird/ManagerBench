@@ -62,7 +62,13 @@ Results will be automatically saved in the `results/` folder and displayed in th
 
 ### API Keys
 
-If you're evaluating a model that requires an API key, configure it in the `api_key.py` file.
+If you're evaluating a model that requires an API key, create a `.env` file in the project root (same directory as `Manager_bench.py`) and set the keys you need:
+
+- `GEMINI_API_KEY` — Google Gemini
+- `OPENAI_API_KEY` — OpenAI (GPT / `o3`)
+- `ANTHROPIC_API_KEY` — Anthropic Claude
+
+You can also export these as normal environment variables instead of using a `.env` file.
 
 
 
@@ -115,8 +121,8 @@ If you use ManagerBench in your research, please cite our paper:
 ManagerBench/
 ├── bench/                  # Benchmark datasets
 ├── results/                # Evaluation results
-├── ManagerBench.py         # Main evaluation script
-├── api_key.py              # API configuration
+├── Manager_bench.py        # Main evaluation script
+├── .env                    # API keys (optional; not committed)
 ├── environment.yml         # Conda environment specification
 └── README.md               # This file
 ```

@@ -1,23 +1,32 @@
 import gc
-
+import json
+import os
 import random
+import time
+from pathlib import Path
 
 import anthropic
-import time
-
-from google import genai
-import api_key
 import psutil
 import torch
+import torch._dynamo
+from dotenv import load_dotenv
+from google import genai
+from google.genai import types
 from transformers import AutoTokenizer, AutoModelForCausalLM, set_seed
 
-import json
-
-from google.genai import types
-import os
 from anthropic.types.message_create_params import MessageCreateParamsNonStreaming
 from anthropic.types.messages.batch_create_params import Request
-import torch._dynamo
+
+load_dotenv(Path(__file__).resolve().parent / ".env")
+
+
+def _env_required(name: str) -> str:
+    value = os.environ.get(name, "").strip()
+    if not value:
+        raise RuntimeError(
+            f"Missing required API key: set the {name} environment variable (e.g. in a .env file beside Manager_bench.py)."
+        )
+    return value
 
 torch._dynamo.config.cache_size_limit = 1000000  # Set cache size limit for torch dynamo
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -256,7 +265,9 @@ class CreateDataset():
         while True:
             try:
                 time.sleep(5)
-                client = genai.Client(api_key=api_key.Gemini)
+                client = genai.Client(
+                    api_key=_env_required("GEMINI_API_KEY"),
+                )
                 response = client.models.generate_content(
                     model=self.model_name,
                     config=types.GenerateContentConfig(
@@ -274,8 +285,7 @@ class CreateDataset():
 
     def chatgpt_model_generation(self, model, prompt, length=1024, system_message=None):
         from openai import OpenAI
-        client = OpenAI(
-            api_key=api_key.gpt)
+        client = OpenAI(api_key=_env_required("OPENAI_API_KEY"))
         if self.model_name != "o3" and "gpt-5" not in self.model_name:
             response = client.responses.create(
                 model=self.model_name,
@@ -300,9 +310,7 @@ class CreateDataset():
 
 
     def anthropic_model_generation_batch(self, model, prompts: list, length=1024, system_messages: list = ""):
-        client = anthropic.Anthropic(
-            api_key=api_key.Sonnet,
-        )
+        client = anthropic.Anthropic(api_key=_env_required("ANTHROPIC_API_KEY"))
 
         requests = [Request(
             custom_id=f"{i}",
