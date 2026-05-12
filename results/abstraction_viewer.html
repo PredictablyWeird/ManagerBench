@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ManagerBench abstraction-experiment viewer</title>
+<style>
+  :root {
+    --bg: #0f1419;
+    --panel: #1a2332;
+    --panel-2: #11192a;
+    --border: #2d3a4d;
+    --text: #e6edf3;
+    --muted: #8b9cb3;
+    --accent: #58a6ff;
+    --danger: #f85149;
+    --ok: #3fb950;
+    --warn: #d29922;
+    --mono: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.45;
+    min-height: 100vh;
+  }
+  header {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+  }
+  header h1 { margin: 0 0 0.35rem; font-size: 1.15rem; font-weight: 600; }
+  header p { margin: 0; font-size: 0.85rem; color: var(--muted); }
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1.25rem;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel-2);
+  }
+  .toolbar label { font-size: 0.8rem; color: var(--muted); }
+  input[type="file"] { font-size: 0.85rem; color: var(--muted); }
+  button {
+    background: var(--accent);
+    color: #0d1117;
+    border: none;
+    padding: 0.4rem 0.85rem;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+  button.secondary {
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+  }
+  main { padding: 1rem 1.25rem 2rem; max-width: 1200px; }
+  h2 { margin: 1.4rem 0 0.6rem; font-size: 1rem; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
+  h3 { margin: 1rem 0 0.4rem; font-size: 0.92rem; color: var(--muted); font-weight: 500; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.85rem; margin: 0.5rem 0; }
+  th, td { padding: 0.35rem 0.6rem; text-align: right; border-bottom: 1px solid var(--border); }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--muted); font-weight: 500; text-transform: uppercase; font-size: 0.72rem; letter-spacing: 0.04em; }
+  tr.highlight { background: rgba(88, 166, 255, 0.08); }
+  tr.baseline td { color: var(--muted); font-style: italic; }
+  .pill {
+    display: inline-block;
+    padding: 0.1rem 0.45rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    font-family: var(--mono);
+  }
+  .pill-A { background: rgba(248, 81, 73, 0.18); color: var(--danger); }
+  .pill-B { background: rgba(63, 185, 80, 0.18); color: var(--ok); }
+  .pill-Refused { background: rgba(210, 153, 34, 0.18); color: var(--warn); }
+  .pill-Unknown { background: rgba(139, 156, 179, 0.18); color: var(--muted); }
+  .node {
+    border-left: 2px solid var(--border);
+    margin: 0.2rem 0 0.2rem 0.4rem;
+    padding-left: 0.6rem;
+  }
+  .node summary {
+    cursor: pointer;
+    padding: 0.2rem 0;
+    font-size: 0.85rem;
+    list-style: none;
+    user-select: none;
+  }
+  .node summary::-webkit-details-marker { display: none; }
+  .node summary::before {
+    content: "▸";
+    display: inline-block;
+    width: 1em;
+    color: var(--muted);
+    transition: transform 0.1s;
+  }
+  details[open] > summary::before { transform: rotate(90deg); }
+  .node-line {
+    display: inline-flex;
+    gap: 0.55rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .level-tag {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--accent);
+    background: rgba(88,166,255,0.1);
+    padding: 0.05rem 0.4rem;
+    border-radius: 4px;
+  }
+  .meta { color: var(--muted); font-size: 0.78rem; font-family: var(--mono); }
+  .snippet { color: var(--text); }
+  .prompt-block {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.7rem 0.85rem;
+    margin: 0.4rem 0;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    white-space: pre-wrap;
+    color: #d6e1ed;
+    max-height: 320px;
+    overflow-y: auto;
+  }
+  .axis-nav {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+  }
+  .axis-nav button {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+    font-weight: 500;
+  }
+  .axis-nav button.active {
+    background: var(--accent);
+    color: #0d1117;
+    border-color: var(--accent);
+  }
+  .cluster-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.8rem 1rem;
+    margin: 0.6rem 0;
+  }
+  .cluster-card summary { cursor: pointer; outline: none; list-style: none; user-select: none; }
+  .cluster-card summary::-webkit-details-marker { display: none; }
+  .cluster-card summary::before {
+    content: "▸";
+    display: inline-block;
+    width: 1em;
+    color: var(--muted);
+    transition: transform 0.1s;
+  }
+  .cluster-card details[open] > summary::before { transform: rotate(90deg); }
+  .cluster-header {
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+    flex-wrap: wrap;
+    font-size: 0.85rem;
+  }
+  .scenario-row {
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+    padding: 0.18rem 0;
+    font-size: 0.78rem;
+    font-family: var(--mono);
+    color: var(--muted);
+  }
+  .empty {
+    color: var(--muted);
+    text-align: center;
+    padding: 4rem 1rem;
+    font-size: 0.9rem;
+  }
+  .config-line { color: var(--muted); font-size: 0.78rem; margin-bottom: 0.5rem; }
+  .filter-bar { display: flex; gap: 0.6rem; align-items: center; margin: 0.4rem 0 0.8rem; font-size: 0.8rem; color: var(--muted); }
+  .filter-bar select, .filter-bar input { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 0.25rem 0.4rem; font-size: 0.82rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>ManagerBench abstraction-experiment viewer</h1>
+  <p>Load either <code>abstraction_tree_psych_harm.json</code> (ladder L1→L2→L3) or <code>abstraction_axes_psych_harm.json</code> (5 orthogonal axes). Schema is auto-detected.</p>
+</header>
+
+<div class="toolbar">
+  <label>JSON file: <input type="file" id="file-picker" accept=".json"/></label>
+  <button id="expand-all" class="secondary">Expand all</button>
+  <button id="collapse-all" class="secondary">Collapse all</button>
+  <span id="status" class="meta"></span>
+</div>
+
+<main id="root">
+  <div class="empty">Pick a JSON file above to begin.</div>
+</main>
+
+<script>
+const $ = (sel) => document.querySelector(sel);
+const root = $("#root");
+const statusEl = $("#status");
+
+function pill(label) {
+  const v = (label === null || label === undefined) ? "—" : String(label);
+  const safe = v.replace(/[^A-Za-z0-9]/g, "");
+  return `<span class="pill pill-${safe}">${v}</span>`;
+}
+
+function fmtPct(x, digits=0) {
+  if (x === null || x === undefined) return "—";
+  return (x * 100).toFixed(digits) + "%";
+}
+function fmt(x, digits=3) {
+  if (x === null || x === undefined) return "—";
+  return (typeof x === "number") ? x.toFixed(digits) : String(x);
+}
+
+function clusterDistText(dist) {
+  if (!dist) return "";
+  const parts = Object.entries(dist).map(([k, v]) => `${k}:${v}`);
+  return parts.join(" / ");
+}
+
+function loadTree(data) {
+  const cfg = data.config || {};
+  const tree = data.tree;
+  const pred = data.predictability || {};
+  const levels = pred.by_level || {};
+  const base = pred.baselines || {};
+
+  let html = "";
+  html += `<div class="config-line">eval=${cfg.eval_model} · abstract=${cfg.abstract_model} · benefit=${cfg.benefit_pct}% harm=${cfg.harm_pct}% · n=${cfg.n_scenarios} · L1 threshold=${cfg.l1_threshold}</div>`;
+
+  html += `<h2>Predictability by level</h2>`;
+  html += `<p class="config-line">flip_rate = 1 − model_acc. Compare each level to the L0 rerun row (noise floor).</p>`;
+  html += `<table><thead><tr>
+    <th>Level</th><th>n clusters</th><th>mean size</th><th>Brier</th><th>model_acc</th><th>flip_rate</th><th>refused</th><th>%in non-trivial</th>
+  </tr></thead><tbody>`;
+  for (const lvl of ["L1", "L2", "L3"]) {
+    const m = levels[lvl];
+    if (!m) continue;
+    const flip = (m.model_acc !== null && m.model_acc !== undefined) ? (1 - m.model_acc) : null;
+    html += `<tr>
+      <td><span class="level-tag">${lvl}</span></td>
+      <td>${m.n_clusters}</td>
+      <td>${fmt(m.mean_cluster_size, 2)}</td>
+      <td>${fmt(m.brier)}</td>
+      <td>${fmt(m.model_acc)}</td>
+      <td>${fmt(flip)}</td>
+      <td>${fmtPct(m.refusal_rate)}</td>
+      <td>${fmtPct(m.pct_in_nontrivial_clusters)}</td>
+    </tr>`;
+  }
+  const rerun = base.rerun;
+  if (rerun && rerun.model_acc !== null && rerun.model_acc !== undefined) {
+    html += `<tr class="highlight"><td><b>L0 rerun (noise floor)</b></td><td>${rerun.n_compared}</td><td>1.00</td><td>0.000</td><td>${fmt(rerun.model_acc)}</td><td>${fmt(rerun.flip_rate)}</td><td>0%</td><td>0%</td></tr>`;
+  }
+  html += `<tr class="baseline"><td>global (always-A)</td><td>1</td><td>${base.n_labelled || ""}</td><td>${fmt(base.global_brier)}</td><td>${fmt(base.global_acc)}</td><td>${fmt(1-base.global_acc)}</td><td>0%</td><td>0%</td></tr>`;
+  html += `<tr class="baseline"><td>oracle</td><td>${base.n_labelled || ""}</td><td>1</td><td>${fmt(base.oracle_brier)}</td><td>${fmt(base.oracle_acc)}</td><td>0.000</td><td>0%</td><td>100%</td></tr>`;
+  html += `</tbody></table>`;
+
+  html += `<h2>Tree</h2>`;
+  html += renderTreeNode(tree);
+
+  root.innerHTML = html;
+  attachExpandButtons();
+}
+
+function renderTreeNode(node) {
+  if (!node) return "";
+  if (node.level === 0) {
+    // Leaf
+    const choicePill = pill(node.L0_choice || "?");
+    const cat = node.category || node.scenario_id || "";
+    return `<div class="node">
+      <div class="node-line">
+        <span class="level-tag">L0</span>
+        ${choicePill}
+        <span class="snippet">${escapeHtml(cat)}</span>
+      </div>
+    </div>`;
+  }
+
+  const choicePill = pill(node.model_choice);
+  const lvl = `L${node.level}`;
+  const dist = clusterDistText(node.leaf_choice_distribution);
+  const snippet = (node.abstract_prompt && node.abstract_prompt.goal)
+    ? escapeHtml(node.abstract_prompt.goal.replace(/\s+/g, " ").slice(0, 110)) + (node.abstract_prompt.goal.length > 110 ? "…" : "")
+    : "";
+
+  let inner = "";
+  if (node.abstract_prompt) {
+    inner += `<details><summary class="meta">show abstract prompt</summary>
+      <div class="prompt-block"><b>GOAL:</b>\n${escapeHtml(node.abstract_prompt.goal)}\n\n<b>OPTIONS:</b>\n${escapeHtml(node.abstract_prompt.options)}</div>
+    </details>`;
+  }
+  if (Array.isArray(node.children)) {
+    for (const c of node.children) {
+      inner += renderTreeNode(c);
+    }
+  }
+
+  return `<details class="node" open>
+    <summary>
+      <span class="node-line">
+        <span class="level-tag">${lvl}</span>
+        ${choicePill}
+        <span class="meta">n=${node.leaf_count} · dist=${dist}</span>
+        <span class="snippet">${snippet}</span>
+      </span>
+    </summary>
+    ${inner}
+  </details>`;
+}
+
+function loadAxes(data) {
+  const cfg = data.config || {};
+  const axes = data.axes || {};
+  const base = data.baselines || {};
+  const leaves = data.leaves || [];
+
+  let html = "";
+  html += `<div class="config-line">eval=${cfg.eval_model} · abstract=${cfg.abstract_model} · benefit=${cfg.benefit_pct}% harm=${cfg.harm_pct}% · n=${cfg.n_scenarios} · axis threshold=${cfg.axis_threshold}</div>`;
+
+  // L0 distribution
+  const l0 = leaves.reduce((acc, l) => { const k = l.L0_choice || "Unknown"; acc[k] = (acc[k]||0) + 1; return acc; }, {});
+  html += `<div class="config-line">L0 ground truth: ${Object.entries(l0).map(([k,v]) => `${k}:${v}`).join(" / ")} (n=${leaves.length})</div>`;
+
+  // Across-axis table
+  html += `<h2>Across-axis predictability</h2>`;
+  html += `<p class="config-line">flip_rate = 1 − model_acc. Compare each axis to the L0 rerun row (noise floor): the excess flip rate is the real effect of stripping that axis.</p>`;
+  html += `<table><thead><tr>
+    <th>Axis</th><th>n clusters</th><th>mean size</th><th>max size</th><th>Brier</th><th>model_acc</th><th>flip_rate</th><th>refused</th><th>%in non-trivial</th><th>abstract A-rate</th>
+  </tr></thead><tbody>`;
+  const rerun = base.rerun;
+  if (rerun && rerun.model_acc !== null && rerun.model_acc !== undefined) {
+    html += `<tr class="highlight">
+      <td><b>L0 rerun (noise floor)</b></td>
+      <td>${rerun.n_compared}</td><td>1.00</td><td>1</td><td>0.000</td>
+      <td>${fmt(rerun.model_acc)}</td><td>${fmt(rerun.flip_rate)}</td>
+      <td>0%</td><td>0%</td><td>${fmtPct(base.p_global_A)}</td>
+    </tr>`;
+  }
+  for (const axis of Object.keys(axes)) {
+    const m = axes[axis].metrics;
+    const clusters = axes[axis].clusters || [];
+    const nA = clusters.filter(c => c.model_choice === "A").length;
+    const nB = clusters.filter(c => c.model_choice === "B").length;
+    const aRate = (nA + nB) > 0 ? nA / (nA + nB) : null;
+    const flip = (m.model_acc !== null && m.model_acc !== undefined) ? (1 - m.model_acc) : null;
+    html += `<tr>
+      <td><b>${axis}</b></td>
+      <td>${m.n_clusters}</td>
+      <td>${fmt(m.mean_cluster_size, 2)}</td>
+      <td>${m.max_cluster_size}</td>
+      <td>${fmt(m.brier)}</td>
+      <td>${fmt(m.model_acc)}</td>
+      <td>${fmt(flip)}</td>
+      <td>${fmtPct(m.refusal_rate)}</td>
+      <td>${fmtPct(m.pct_in_nontrivial_clusters)}</td>
+      <td>${fmtPct(aRate)}</td>
+    </tr>`;
+  }
+  html += `<tr class="baseline"><td>global (always-A)</td><td>1</td><td>${base.n_labelled||""}</td><td>${base.n_labelled||""}</td><td>${fmt(base.global_brier)}</td><td>${fmt(base.global_acc)}</td><td>${fmt(1-base.global_acc)}</td><td>0%</td><td>0%</td><td>${fmtPct(base.p_global_A)}</td></tr>`;
+  html += `<tr class="baseline"><td>oracle</td><td>${base.n_labelled||""}</td><td>1</td><td>1</td><td>${fmt(base.oracle_brier)}</td><td>${fmt(base.oracle_acc)}</td><td>0.000</td><td>0%</td><td>100%</td><td>—</td></tr>`;
+  html += `</tbody></table>`;
+
+  // Axis nav
+  const axisNames = Object.keys(axes);
+  html += `<h2>Axis detail</h2>`;
+  html += `<div class="axis-nav">` + axisNames.map((a, i) => `<button data-axis="${a}" class="${i===0?'active':''}">${a}</button>`).join("") + `</div>`;
+  html += `<div class="filter-bar">
+    sort: <select id="cluster-sort">
+      <option value="size">by size (desc)</option>
+      <option value="dist">by leaf dist mismatch</option>
+      <option value="model">by model choice</option>
+    </select>
+    filter: <select id="cluster-filter">
+      <option value="all">all clusters</option>
+      <option value="nontrivial">only size > 1</option>
+      <option value="flip">only model_choice ≠ majority L0</option>
+    </select>
+  </div>`;
+  html += `<div id="axis-content"></div>`;
+
+  root.innerHTML = html;
+
+  function renderAxis(axisName) {
+    const data = axes[axisName];
+    if (!data) return;
+    const sort = $("#cluster-sort").value;
+    const filter = $("#cluster-filter").value;
+    let clusters = [...data.clusters];
+
+    clusters = clusters.filter(c => {
+      if (filter === "nontrivial") return c.size > 1;
+      if (filter === "flip") {
+        const dist = c.leaf_choice_distribution || {};
+        const majority = Object.entries(dist).sort((a,b) => b[1]-a[1])[0]?.[0];
+        return c.model_choice && majority && c.model_choice !== majority;
+      }
+      return true;
+    });
+
+    if (sort === "size") clusters.sort((a, b) => b.size - a.size);
+    else if (sort === "model") clusters.sort((a, b) => (a.model_choice||"").localeCompare(b.model_choice||""));
+    else if (sort === "dist") {
+      // mismatch = max-cluster - max(any single label) ; smaller = more uniform
+      clusters.sort((a, b) => {
+        const ma = Math.max(...Object.values(a.leaf_choice_distribution || {1:1}));
+        const mb = Math.max(...Object.values(b.leaf_choice_distribution || {1:1}));
+        return (a.size - ma) - (b.size - mb);  // larger mismatch first
+      });
+      clusters.reverse();
+    }
+
+    let html = `<h3>${axisName} — ${clusters.length} clusters shown</h3>`;
+    if (clusters.length === 0) {
+      html += `<div class="empty">No clusters match the filter.</div>`;
+    }
+    for (const c of clusters) {
+      const memberIds = (c.members || []).map(i => leaves[i] || {});
+      const choicePill = pill(c.model_choice);
+      const dist = clusterDistText(c.leaf_choice_distribution);
+      html += `<details class="cluster-card">
+        <summary>
+          <span class="cluster-header">
+            ${choicePill}
+            <span class="meta">size=${c.size} · L0=${dist}</span>
+            <span class="snippet">${escapeHtml((c.abstract_prompt.goal || "").replace(/\s+/g, " ").slice(0, 140))}…</span>
+          </span>
+        </summary>
+        <div class="prompt-block"><b>GOAL:</b>\n${escapeHtml(c.abstract_prompt.goal)}\n\n<b>OPTIONS:</b>\n${escapeHtml(c.abstract_prompt.options)}</div>
+        <div style="margin-top:0.4rem">
+          ${memberIds.map(m => `<div class="scenario-row">${pill(m.L0_choice || "?")} ${escapeHtml(m.category || m.scenario_id || "")}</div>`).join("")}
+        </div>
+      </details>`;
+    }
+    $("#axis-content").innerHTML = html;
+  }
+
+  // Wire nav
+  document.querySelectorAll(".axis-nav button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".axis-nav button").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      renderAxis(btn.dataset.axis);
+    });
+  });
+  $("#cluster-sort").addEventListener("change", () => {
+    const active = document.querySelector(".axis-nav button.active");
+    if (active) renderAxis(active.dataset.axis);
+  });
+  $("#cluster-filter").addEventListener("change", () => {
+    const active = document.querySelector(".axis-nav button.active");
+    if (active) renderAxis(active.dataset.axis);
+  });
+
+  renderAxis(axisNames[0]);
+}
+
+function escapeHtml(s) {
+  if (s === null || s === undefined) return "";
+  return String(s).replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+}
+
+function attachExpandButtons() {
+  $("#expand-all").onclick = () => document.querySelectorAll("details").forEach(d => d.open = true);
+  $("#collapse-all").onclick = () => document.querySelectorAll("details").forEach(d => d.open = false);
+}
+
+function detectAndLoad(data, fileName) {
+  if (data && data.axes && typeof data.axes === "object") {
+    statusEl.textContent = `axes experiment · ${fileName}`;
+    loadAxes(data);
+  } else if (data && data.tree) {
+    statusEl.textContent = `ladder tree · ${fileName}`;
+    loadTree(data);
+  } else {
+    root.innerHTML = `<div class="empty">Unknown schema. Expected either <code>.tree</code> (ladder) or <code>.axes</code> (axes experiment) at top level.</div>`;
+  }
+  attachExpandButtons();
+}
+
+$("#file-picker").addEventListener("change", (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      detectAndLoad(data, f.name);
+    } catch (err) {
+      root.innerHTML = `<div class="empty">Failed to parse JSON: ${escapeHtml(err.message)}</div>`;
+    }
+  };
+  reader.readAsText(f);
+});
+
+// Pre-attach buttons in case the user clicks before loading.
+attachExpandButtons();
+</script>
+</body>
+</html>
