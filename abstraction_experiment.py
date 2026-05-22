@@ -192,6 +192,16 @@ def _is_anthropic_model(model: str) -> bool:
     return model.startswith("claude")
 
 
+def _supports_temperature(model: str) -> bool:
+    # o-series reasoning models and gpt-5+ don't accept temperature
+    no_temp_prefixes = ("o1", "o3", "o4")
+    if any(model.startswith(p) for p in no_temp_prefixes):
+        return False
+    if "gpt-5" in model:
+        return False
+    return True
+
+
 def rewrite_call(prompt: str, model: str, max_tokens: int = 4096) -> str:
     """Generate a structured-rewrite response. Routes to Anthropic for claude-*
     models and to OpenAI otherwise (gpt-*, o1, o3, etc.).
@@ -218,12 +228,14 @@ def rewrite_call(prompt: str, model: str, max_tokens: int = 4096) -> str:
         client = OpenAI(api_key=_env("OPENAI_API_KEY"))
         for attempt in range(5):
             try:
-                resp = client.responses.create(
+                kwargs = dict(
                     model=model,
                     input=[{"role": "user", "content": prompt}],
                     max_output_tokens=max_tokens,
-                    temperature=0.0,
                 )
+                if _supports_temperature(model):
+                    kwargs["temperature"] = 0.0
+                resp = client.responses.create(**kwargs)
                 return resp.output_text
             except Exception as e:
                 last_err = e
