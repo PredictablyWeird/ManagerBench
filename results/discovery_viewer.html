@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Feature Discovery Viewer — ManagerBench</title>
+<style>
+:root{
+  --bg:#0f1419; --panel:#1a2332; --panel2:#11192a; --border:#2d3a4d;
+  --text:#e6edf3; --muted:#8b9cb3; --accent:#58a6ff;
+  --ok:#3fb950; --danger:#f85149; --warn:#d29922; --orange:#e3934a;
+  --mono:ui-monospace,"Cascadia Code","Source Code Pro",Menlo,monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.5}
+header{padding:1rem 1.5rem;border-bottom:1px solid var(--border);background:var(--panel2)}
+h1{font-size:1.15rem;font-weight:600;color:var(--accent)}
+#hdr-meta{color:var(--muted);font-size:.8rem;margin-top:.25rem}
+.file-row{margin-top:.5rem;display:flex;align-items:center;gap:.6rem;font-size:.8rem;flex-wrap:wrap}
+.file-btn{background:var(--accent);color:#0f1419;padding:.25rem .7rem;border-radius:5px;cursor:pointer;font-weight:600}
+.file-btn:hover{filter:brightness(1.1)}
+.file-btn input{display:none}
+#file-name{color:var(--muted)}
+#file-error{color:var(--danger)}
+.tabs{margin-top:.7rem;display:flex;gap:.3rem}
+.tab{background:transparent;color:var(--muted);border:1px solid var(--border);padding:.25rem .7rem;border-radius:5px;cursor:pointer;font:inherit;font-size:.78rem}
+.tab.active{background:var(--panel);color:var(--text);border-color:var(--accent)}
+#app{display:grid;grid-template-columns:320px 1fr;height:calc(100vh - 140px)}
+#sidebar{background:var(--panel2);border-right:1px solid var(--border);overflow-y:auto;padding:.5rem}
+.sc-card{padding:.55rem .7rem;border:1px solid var(--border);border-radius:6px;margin-bottom:.4rem;cursor:pointer;background:var(--panel)}
+.sc-card:hover{border-color:var(--accent)}
+.sc-card.active{border-color:var(--accent);background:#16223a}
+.sc-title{font-size:.84rem;font-weight:600}
+.sc-meta{font-size:.72rem;color:var(--muted);margin-top:.15rem}
+.sc-stats{font-size:.72rem;color:var(--muted);margin-top:.25rem;display:flex;gap:.6rem}
+.sc-stats .stat-flip{color:var(--ok);font-weight:600}
+#main{overflow-y:auto;padding:1rem 1.25rem}
+h2.scenario-h{font-size:1rem;font-weight:600}
+.meta-row{font-size:.78rem;color:var(--muted);margin-top:.2rem;display:flex;gap:1rem;flex-wrap:wrap}
+.section{margin-top:1.1rem}
+.section h3{font-size:.85rem;font-weight:600;color:var(--accent);margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.04em}
+.l0-panel{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:.7rem .8rem}
+.l0-stats{display:flex;gap:1rem;font-size:.78rem;color:var(--muted);margin-bottom:.4rem}
+.kv{font-family:var(--mono);background:var(--panel2);padding:.05rem .35rem;border-radius:3px;color:var(--text)}
+details{background:var(--panel);border:1px solid var(--border);border-radius:5px;margin-top:.3rem;padding:.4rem .6rem}
+details summary{cursor:pointer;color:var(--muted);font-size:.78rem;outline:none}
+details[open] summary{color:var(--text);margin-bottom:.3rem}
+.goal-text,.options-text{font-family:var(--mono);font-size:.74rem;white-space:pre-wrap;color:var(--text);background:var(--panel2);padding:.5rem .6rem;border-radius:5px;margin-top:.2rem}
+.options-text .opt-A{color:var(--orange);font-weight:700}
+.options-text .opt-B{color:var(--ok);font-weight:700}
+.reasoning-text{font-family:var(--mono);font-size:.72rem;white-space:pre-wrap;color:var(--muted);background:var(--panel2);padding:.5rem .6rem;border-radius:5px;border-left:3px solid var(--muted);max-height:240px;overflow-y:auto}
+.step-card{background:var(--panel);border:1px solid var(--border);border-radius:6px;margin-top:.5rem;padding:.5rem .7rem}
+.step-card.flipped{border-left:3px solid var(--ok)}
+.step-card.error{border-left:3px solid var(--danger);opacity:.7}
+.step-header{display:flex;align-items:center;gap:.6rem;font-size:.78rem;flex-wrap:wrap}
+.step-num{font-family:var(--mono);font-weight:700;color:var(--muted)}
+.parent-badge{font-family:var(--mono);font-size:.7rem;color:var(--muted);background:var(--panel2);padding:.1rem .35rem;border-radius:3px}
+.choice-badge{font-family:var(--mono);font-size:.7rem;padding:.1rem .4rem;border-radius:3px;font-weight:700}
+.choice-A{background:rgba(227,147,74,.18);color:var(--orange)}
+.choice-B{background:rgba(63,185,80,.18);color:var(--ok)}
+.choice-Refused,.choice-Unknown,.choice-error{background:rgba(248,81,73,.18);color:var(--danger)}
+.flip-badge{font-size:.7rem;padding:.1rem .4rem;border-radius:3px;font-weight:600}
+.flip-yes{background:rgba(63,185,80,.18);color:var(--ok)}
+.flip-no{background:transparent;color:var(--muted)}
+.a-rate-wrap{flex:1;min-width:80px;height:8px;background:var(--panel2);border-radius:4px;overflow:hidden;position:relative}
+.a-rate-bar{height:100%;background:linear-gradient(90deg,var(--ok),var(--orange));transition:width .2s}
+.a-rate-val{font-family:var(--mono);font-size:.7rem;color:var(--muted);min-width:34px;text-align:right}
+.edit-summary{margin-top:.35rem;font-size:.82rem;color:var(--text)}
+.rationale{margin-top:.2rem;font-size:.74rem;color:var(--muted);font-style:italic}
+.review-box{margin-top:.4rem;background:#1b2a44;border-left:3px solid var(--accent);padding:.4rem .55rem;font-size:.75rem;border-radius:4px}
+.review-box .lbl{color:var(--accent);font-weight:600;font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:.15rem}
+.mem-groups{display:flex;flex-direction:column;gap:.7rem;margin-top:.3rem}
+.mem-group{background:transparent}
+.mem-group-h{font-size:.74rem;text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-bottom:.3rem;display:flex;align-items:center;gap:.4rem}
+.mem-group-h .count{font-family:var(--mono);color:var(--muted);font-weight:400}
+.mem-group-supported .mem-group-h{color:var(--ok)}
+.mem-group-flip .mem-group-h{color:var(--ok)}
+.mem-group-refuted .mem-group-h{color:var(--danger)}
+.mem-group-stay .mem-group-h{color:var(--accent)}
+.mem-group-mixed .mem-group-h{color:var(--orange)}
+.mem-group-open .mem-group-h{color:var(--warn)}
+.mem-group-weakened .mem-group-h{color:var(--orange)}
+.mem-card.status-flip{border-left-color:var(--ok)}
+.mem-card.status-stay{border-left-color:var(--accent)}
+.mem-card.status-mixed{border-left-color:var(--orange)}
+.mem-list{display:flex;flex-direction:column;gap:.4rem;margin-top:.3rem}
+.mem-card{background:var(--panel2);border-left:3px solid var(--muted);border-radius:5px;padding:.45rem .6rem;font-size:.78rem}
+.mem-card.status-supported{border-left-color:var(--ok)}
+.mem-card.status-refuted{border-left-color:var(--danger)}
+.mem-card.status-open{border-left-color:var(--warn)}
+.mem-card.status-weakened{border-left-color:var(--orange)}
+.status-flip .status-pill{background:rgba(63,185,80,.2);color:var(--ok)}
+.status-stay .status-pill{background:rgba(88,166,255,.2);color:var(--accent)}
+.status-mixed .status-pill{background:rgba(227,147,74,.2);color:var(--orange)}
+.mem-head{display:flex;align-items:center;gap:.4rem;font-size:.72rem;color:var(--muted);margin-bottom:.2rem;flex-wrap:wrap}
+.mem-id{font-family:var(--mono);font-weight:700;color:var(--text)}
+.status-pill{padding:.05rem .35rem;border-radius:3px;font-weight:600;font-size:.66rem;text-transform:uppercase}
+.status-supported .status-pill{background:rgba(63,185,80,.2);color:var(--ok)}
+.status-refuted .status-pill{background:rgba(248,81,73,.2);color:var(--danger)}
+.status-open .status-pill{background:rgba(210,153,34,.2);color:var(--warn)}
+.status-weakened .status-pill{background:rgba(227,147,74,.2);color:var(--orange)}
+.tested-chip{font-family:var(--mono);font-size:.64rem;background:var(--panel);color:var(--muted);padding:.05rem .3rem;border-radius:3px}
+.mem-claim{color:var(--text);margin:.15rem 0}
+.mem-evidence{font-size:.7rem;color:var(--muted);font-family:var(--mono);padding-left:.7rem}
+.mem-evidence-item{position:relative;padding:.1rem 0;display:flex;flex-wrap:wrap;gap:.4rem;font-family:var(--mono);font-size:.7rem}
+.mem-evidence-item::before{content:"▸";position:absolute;left:-.6rem;color:var(--muted)}
+.mem-evidence-item.ev-supports{color:var(--ok)}
+.mem-evidence-item.ev-refutes{color:var(--danger)}
+.mem-evidence-item .ev-step{font-weight:700}
+.mem-evidence-item .ev-vs{color:var(--muted)}
+.mem-evidence-item .ev-feat{color:var(--accent)}
+.mem-evidence-item .ev-out{color:var(--text)}
+.mem-evidence-item .ev-sr{color:var(--muted);font-size:.64rem;text-transform:uppercase}
+.feature-chip{font-family:var(--mono);font-size:.66rem;background:rgba(88,166,255,.18);color:var(--accent);padding:.05rem .35rem;border-radius:3px;font-weight:600}
+.ev-pair{margin-top:.35rem;background:var(--panel);border:1px solid var(--border);border-radius:5px;padding:.4rem .5rem}
+.ev-pair summary{cursor:pointer;font-family:var(--mono);font-size:.7rem;display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;outline:none}
+.ev-pair summary::-webkit-details-marker{color:var(--muted)}
+.ev-pair-grid{display:grid;grid-template-columns:1fr 1fr;gap:.4rem;margin-top:.4rem}
+.ev-pair-col h5{font-size:.66rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:.2rem;display:flex;justify-content:space-between;align-items:center}
+.ev-pair-col h5 .col-tag{font-family:var(--mono);color:var(--text);font-weight:400}
+.ev-pair-col .goal-text,.ev-pair-col .options-text{font-size:.7rem;max-height:200px;overflow-y:auto}
+.ev-pair.ev-supports,.ev-pair.ev-flip{border-left:3px solid var(--ok)}
+.ev-pair.ev-refutes{border-left:3px solid var(--danger)}
+.ev-pair.ev-stay{border-left:3px solid var(--accent)}
+.reasoning-details{margin-top:.4rem}
+.reasoning-details summary{cursor:pointer;font-size:.7rem;color:var(--muted)}
+.reasoning-details[open] summary{color:var(--text)}
+.ev-not-found{color:var(--muted);font-style:italic;font-size:.7rem}
+.mode-badge{font-family:var(--mono);font-size:.66rem;padding:.05rem .35rem;border-radius:3px;font-weight:600;text-transform:uppercase}
+.mode-isolate{background:rgba(63,185,80,.18);color:var(--ok)}
+.mode-explore{background:rgba(210,153,34,.18);color:var(--warn)}
+.memdiff-grid{display:grid;grid-template-columns:1fr 1fr;gap:.4rem;margin-top:.3rem}
+.memdiff-col h4{font-size:.66rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:.2rem}
+.empty{color:var(--muted);font-style:italic;font-size:.78rem}
+.final-mem-view{padding:.5rem 0}
+.final-mem-view h2{font-size:1rem;font-weight:600;margin-bottom:.5rem}
+</style>
+</head>
+<body>
+<header>
+  <h1>Feature Discovery Viewer — ManagerBench</h1>
+  <p id="hdr-meta">No data loaded.</p>
+  <div class="file-row">
+    <label class="file-btn">Load JSON…<input type="file" id="file-input" accept=".json,application/json"/></label>
+    <span id="file-name">no file loaded</span>
+    <span id="file-error"></span>
+  </div>
+  <div class="tabs">
+    <button class="tab active" data-tab="scenarios" id="tab-scenarios">Scenarios</button>
+    <button class="tab" data-tab="finalmem" id="tab-finalmem">Final cross-scenario memory</button>
+  </div>
+</header>
+<div id="app">
+  <aside id="sidebar"></aside>
+  <main id="main"><p style="color:var(--muted);padding:1rem">Load a feature_discovery_*.json file to begin.</p></main>
+</div>
+<script>
+let DATA = null;
+let CURRENT_SCENARIO = 0;
+let CURRENT_TAB = 'scenarios';
+// Lookup table: "<short scenario>::step <N>" -> trace entry. Plus a generic
+// "step <N>" key resolves within the current scenario's trace.
+let STEP_INDEX = {};
+function rebuildStepIndex(){
+  STEP_INDEX = {};
+  if(!DATA || !DATA.scenarios) return;
+  DATA.scenarios.forEach((s, scIdx) => {
+    const sid = (s.scenario_id || '').toLowerCase();
+    const short = shortScenario(s.scenario_id || '').toLowerCase();
+    (s.trace || []).forEach(t => {
+      const n = (t.step != null) ? (t.step + 1) : null;
+      if(n == null) return;
+      const entry = { sc: scIdx, t };
+      STEP_INDEX[`${short}::step ${n}`] = entry;
+      STEP_INDEX[`${short}::${n}`] = entry;
+      STEP_INDEX[`${sid}::step ${n}`] = entry;
+      STEP_INDEX[`${sid}::${n}`] = entry;
+    });
+    STEP_INDEX[`${short}::l0`] = { sc: scIdx, t: null, isL0: true };
+    STEP_INDEX[`${sid}::l0`] = { sc: scIdx, t: null, isL0: true };
+  });
+}
+
+function esc(s){return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function fmtOpts(t){if(!t)return '';return esc(t).replace(/\*\*Option A:\*\*/g,'<span class="opt-A">▶ Option A:</span>').replace(/\*\*Option B:\*\*/g,'<span class="opt-B">▶ Option B:</span>')}
+function pct(x){return Math.round((x||0)*100)+'%'}
+function shortScenario(sid){
+  // "chat_all_topics::Transportation_depression or anxiety episodes_Avoid being shut down" -> "Transportation"
+  const parts = (sid||'').split('::');
+  if(parts.length < 2) return sid||'';
+  const rest = parts[1];
+  return rest.split('_')[0];
+}
+
+function verdictOf(m){
+  // Prefer `verdict` (new schema); fall back to `status` (old schema).
+  return ((m && (m.verdict || m.status)) || 'open').toLowerCase();
+}
+function statusClass(s){
+  s = (s||'').toLowerCase();
+  if(s === 'supported') return 'status-supported';
+  if(s === 'refuted') return 'status-refuted';
+  if(s === 'weakened') return 'status-weakened';
+  if(s === 'flip') return 'status-flip';
+  if(s === 'stay') return 'status-stay';
+  if(s === 'mixed') return 'status-mixed';
+  return 'status-open';
+}
+
+// Look up a trace step from a free-form reference string like "Transportation step 7",
+// "construction step 4", "step 14", or "L0". `contextScenarioIdx` is used as a
+// fallback when the ref has no scenario prefix. Returns {sc, t, isL0} or null.
+function lookupStepRef(ref, contextScenarioIdx){
+  if(!ref) return null;
+  const r = String(ref).toLowerCase().trim();
+  if(r === 'l0' || r === 'baseline'){
+    if(contextScenarioIdx == null) return null;
+    return { sc: contextScenarioIdx, t: null, isL0: true };
+  }
+  // Extract a step number if present anywhere.
+  const stepMatch = r.match(/step\s*(\d+)/i) || r.match(/(\d+)\s*$/);
+  if(!stepMatch) return null;
+  const stepNum = parseInt(stepMatch[1], 10);
+
+  // Strategy 1: substring-match against any known scenario's short name or
+  // full id. The agent emits both formats — both are recognized.
+  if(DATA && DATA.scenarios){
+    for(let i = 0; i < DATA.scenarios.length; i++){
+      const sid = (DATA.scenarios[i].scenario_id || '').toLowerCase();
+      const sho = shortScenario(DATA.scenarios[i].scenario_id || '').toLowerCase();
+      if(sid && r.indexOf(sid) !== -1){
+        const k = `${sid}::step ${stepNum}`;
+        if(STEP_INDEX[k]) return STEP_INDEX[k];
+      }
+      if(sho && r.indexOf(sho) !== -1){
+        const k = `${sho}::step ${stepNum}`;
+        if(STEP_INDEX[k]) return STEP_INDEX[k];
+      }
+    }
+  }
+  // Strategy 2: fall back to current scenario.
+  if(contextScenarioIdx != null && DATA && DATA.scenarios[contextScenarioIdx]){
+    const s = DATA.scenarios[contextScenarioIdx];
+    const sho = shortScenario(s.scenario_id || '').toLowerCase();
+    const k = `${sho}::step ${stepNum}`;
+    if(STEP_INDEX[k]) return STEP_INDEX[k];
+  }
+  return null;
+}
+
+// Render one candidate's goal/options + reasoning sample as a side-by-side
+// comparison column. Reasoning is in a nested collapsible to keep the panel
+// compact while still letting you read what gpt-4o was thinking.
+function renderRefPanel(ref, label, contextSc, l0Goal, l0Opts){
+  const found = lookupStepRef(ref, contextSc);
+  if(found && found.isL0){
+    // L0 reasoning lives on the scenario object: data.scenarios[sc].L0_eval.reasoning_sample
+    const sc = DATA && DATA.scenarios && DATA.scenarios[found.sc];
+    const l0Reasoning = (sc && sc.L0_eval && sc.L0_eval.reasoning_sample) || '';
+    return `<div class="ev-pair-col">
+      <h5>${esc(label)} <span class="col-tag">L0 (${esc(ref)})</span></h5>
+      <div class="goal-text">${esc(l0Goal || (sc ? sc.l0_goal : '') || '')}</div>
+      <div class="options-text">${fmtOpts(l0Opts || (sc ? sc.l0_options : '') || '')}</div>
+      <details class="reasoning-details">
+        <summary>Model reasoning on L0</summary>
+        <div class="reasoning-text">${esc(l0Reasoning || '(none)')}</div>
+      </details>
+    </div>`;
+  }
+  if(found && found.t){
+    const c = found.t.candidate || {};
+    const mode = found.t.mode || '';
+    const feat = found.t.feature_under_test || '';
+    const ar = found.t.a_rate != null ? found.t.a_rate.toFixed(2) : '?';
+    const mj = found.t.majority_choice || '?';
+    const reasoning = found.t.reasoning_sample || '';
+    return `<div class="ev-pair-col">
+      <h5>${esc(label)} <span class="col-tag">${esc(ref)} [${esc(mode)}] ${esc(feat)} A-rate ${ar} → ${esc(mj)}</span></h5>
+      <div class="goal-text">${esc(c.goal || '')}</div>
+      <div class="options-text">${fmtOpts(c.options || '')}</div>
+      <details class="reasoning-details">
+        <summary>Model reasoning on this step</summary>
+        <div class="reasoning-text">${esc(reasoning || '(none)')}</div>
+      </details>
+    </div>`;
+  }
+  return `<div class="ev-pair-col">
+    <h5>${esc(label)} <span class="col-tag">${esc(ref)}</span></h5>
+    <div class="ev-not-found">step not found in loaded data</div>
+  </div>`;
+}
+
+function renderEvidenceEntry(e, contextSc, l0Goal, l0Opts){
+  if(typeof e === 'string'){
+    return `<div class="ev-pair"><summary style="display:block">${esc(e)}</summary></div>`;
+  }
+  if(!e || typeof e !== 'object'){
+    return `<div class="ev-pair"><summary style="display:block">${esc(String(e))}</summary></div>`;
+  }
+  const step = e.step || '?';
+  const par = e.vs_parent || '?';
+  const feat = e.feature_observed || e.feature || '';
+  const dirn = e.direction || '';
+  const out = e.outcome || '';
+  // Prefer new outcome_class; fall back to legacy supports_or_refutes.
+  const oc = (e.outcome_class || e.supports_or_refutes || '').toLowerCase();
+  const ocClass = oc === 'flip' || oc === 'supports' ? 'ev-flip'
+                : oc === 'stay' ? 'ev-stay'
+                : oc === 'refutes' ? 'ev-refutes' : '';
+  return `<details class="ev-pair ${ocClass}">
+    <summary>
+      <span class="ev-step">${esc(step)}</span>
+      <span class="ev-vs">vs ${esc(par)}</span>
+      <span class="ev-feat">${esc(feat)}${esc(dirn)}</span>
+      <span class="ev-out">→ ${esc(out)}</span>
+      <span class="ev-sr">[${esc(oc || '?')}]</span>
+    </summary>
+    <div class="ev-pair-grid">
+      ${renderRefPanel(par, 'Parent (baseline)', contextSc, l0Goal, l0Opts)}
+      ${renderRefPanel(step, 'Test step', contextSc, l0Goal, l0Opts)}
+    </div>
+  </details>`;
+}
+
+function renderMemoryCard(m, contextSc, l0Goal, l0Opts){
+  const v = verdictOf(m);
+  const sc = statusClass(v);
+  const tested = (m.tested_on || []).map(t =>
+    `<span class="tested-chip" title="${esc(t)}">${esc(shortScenario(t))}</span>`).join('');
+  const ev = (m.evidence || []).map(e =>
+    renderEvidenceEntry(e, contextSc, l0Goal, l0Opts)).join('');
+  const feature = m.feature
+    ? `<span class="feature-chip">${esc(m.feature)}${esc(m.direction||'')}</span>` : '';
+  const nEv = (m.evidence || []).length;
+  return `<div class="mem-card ${sc}">
+    <div class="mem-head">
+      <span class="mem-id">[${esc(m.id||'?')}]</span>
+      <span class="status-pill">${esc(v)}</span>
+      <span class="parent-badge">n_evidence ${nEv}</span>
+      ${feature}
+      ${tested}
+    </div>
+    <div class="mem-claim">${esc(m.claim||'(no claim)')}</div>
+    ${ev ? `<div class="mem-evidence">${ev}</div>` : ''}
+  </div>`;
+}
+
+// Group memory cards by status. contextSc is the index of the scenario whose
+// trace is the default lookup for un-prefixed step refs (or null for the
+// cross-scenario final memory tab, where any prefix is required).
+function renderMemoryList(memory, contextSc, l0Goal, l0Opts){
+  if(!memory || !memory.length){
+    return `<div class="empty">(empty)</div>`;
+  }
+  // Buckets cover both the new verdict labels (flip/stay/mixed/open) and
+  // legacy status labels (supported/refuted/weakened) so old JSON still renders.
+  const buckets = { flip: [], stay: [], mixed: [], supported: [], refuted: [],
+                    weakened: [], open: [], other: [] };
+  memory.forEach(m => {
+    const v = verdictOf(m);
+    if(buckets[v]) buckets[v].push(m);
+    else buckets.other.push(m);
+  });
+  const order = ['flip', 'stay', 'mixed', 'supported', 'refuted', 'weakened',
+                 'open', 'other'];
+  const labels = {
+    flip:    'Flip (≥3 confirming cases)',
+    stay:    'Stay (≥3 confirming cases)',
+    mixed:   'Mixed (≥3 cases, both flip & stay observed)',
+    supported: 'Supported (legacy)',
+    refuted:   'Refuted (legacy)',
+    weakened:  'Weakened (legacy)',
+    open:    'Open (needs more evidence)',
+    other:   'Other',
+  };
+  const sections = order.filter(k => buckets[k].length).map(k => {
+    const cards = buckets[k].map(m =>
+      renderMemoryCard(m, contextSc, l0Goal, l0Opts)).join('');
+    return `<div class="mem-group mem-group-${k}">
+      <div class="mem-group-h">${esc(labels[k])} <span class="count">(${buckets[k].length})</span></div>
+      <div class="mem-list">${cards}</div>
+    </div>`;
+  }).join('');
+  return `<div class="mem-groups">${sections}</div>`;
+}
+
+function renderStep(t, idx, contextSc, l0Goal, l0Opts){
+  if(t.error){
+    return `<div class="step-card error">
+      <div class="step-header">
+        <span class="step-num">#${idx+1}</span>
+        <span class="parent-badge">${esc(t.parent || 'L0')}</span>
+        <span class="choice-badge choice-error">PROPOSE_ERROR</span>
+        <span class="edit-summary" style="flex:1">${esc(t.error)}</span>
+      </div>
+    </div>`;
+  }
+  const ar = (t.a_rate != null) ? t.a_rate : 0;
+  const ch = t.majority_choice || '?';
+  const flipped = !!t.flipped;
+  const vd = t.vote_dist || {};
+  const vdStr = Object.entries(vd).map(([k,v]) => `${k}:${v}`).join(' / ');
+  const cand = t.candidate || {};
+  const memPre = t.memory_pre_review || [];
+  const memPost = t.memory_snapshot || [];
+
+  const mode = t.mode || '';
+  const featUT = t.feature_under_test || '';
+  const modeBadge = mode ? `<span class="mode-badge mode-${esc(mode)}">${esc(mode)}</span>` : '';
+  const featBadge = featUT ? `<span class="feature-chip">${esc(featUT)}</span>` : '';
+  return `<div class="step-card ${flipped ? 'flipped' : ''}">
+    <div class="step-header">
+      <span class="step-num">#${idx+1}</span>
+      ${modeBadge}${featBadge}
+      <span class="parent-badge">parent: ${esc(t.parent || 'L0')}</span>
+      <div class="a-rate-wrap"><div class="a-rate-bar" style="width:${pct(ar)}"></div></div>
+      <span class="a-rate-val">A-rate ${ar.toFixed(2)}</span>
+      <span class="choice-badge choice-${esc(ch)}">${esc(ch)}</span>
+      <span class="flip-badge ${flipped ? 'flip-yes' : 'flip-no'}">${flipped ? '⤧ FLIP' : 'no flip'}</span>
+      <span class="parent-badge" style="margin-left:auto">votes ${esc(vdStr)}</span>
+    </div>
+    <div class="edit-summary">${esc(t.edit_summary || '(no edit summary)')}</div>
+    ${t.rationale ? `<div class="rationale">${esc(t.rationale)}</div>` : ''}
+    ${t.review_notes ? `<div class="review-box"><span class="lbl">Reviewer note</span>${esc(t.review_notes)}</div>` : ''}
+    <details>
+      <summary>Candidate prompt</summary>
+      <div class="goal-text">${esc(cand.goal || '')}</div>
+      <div class="options-text">${fmtOpts(cand.options || '')}</div>
+    </details>
+    <details>
+      <summary>Model reasoning sample</summary>
+      <div class="reasoning-text">${esc(t.reasoning_sample || '(none)')}</div>
+    </details>
+    <details>
+      <summary>Memory before / after review</summary>
+      <div class="memdiff-grid">
+        <div class="memdiff-col">
+          <h4>Agent emitted (pre-review)</h4>
+          ${renderMemoryList(memPre, contextSc, l0Goal, l0Opts)}
+        </div>
+        <div class="memdiff-col">
+          <h4>After reviewer pass</h4>
+          ${renderMemoryList(memPost, contextSc, l0Goal, l0Opts)}
+        </div>
+      </div>
+    </details>
+  </div>`;
+}
+
+function renderSidebar(){
+  const sb = document.getElementById('sidebar');
+  if(!DATA){ sb.innerHTML = ''; return; }
+  if(CURRENT_TAB === 'finalmem'){
+    sb.innerHTML = `<div style="padding:.5rem;color:var(--muted);font-size:.78rem">
+      Final cross-scenario memory snapshot at run end.<br><br>
+      ${(DATA.final_memory||[]).length} hypotheses.
+    </div>`;
+    return;
+  }
+  const scs = DATA.scenarios || [];
+  sb.innerHTML = scs.map((s, i) => {
+    const L0 = s.L0_eval || {};
+    const trace = s.trace || [];
+    const nFlip = trace.filter(t => t.flipped).length;
+    const ar = (L0.a_rate != null) ? L0.a_rate.toFixed(2) : '?';
+    return `<div class="sc-card${i===CURRENT_SCENARIO?' active':''}" onclick="selectScenario(${i})">
+      <div class="sc-title">${esc(s.domain||'?')}</div>
+      <div class="sc-meta">${esc(s.ai_goal||'')}</div>
+      <div class="sc-stats">
+        <span>L0=${esc(L0.majority_choice||'?')} (a${ar})</span>
+        <span>${trace.length} steps</span>
+        <span class="stat-flip">${nFlip} flips</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderScenario(idx){
+  if(!DATA || !DATA.scenarios || !DATA.scenarios[idx]){
+    document.getElementById('main').innerHTML =
+      `<p style="color:var(--muted);padding:1rem">No scenario.</p>`;
+    return;
+  }
+  const s = DATA.scenarios[idx];
+  const L0 = s.L0_eval || {};
+  const vd = L0.vote_dist || {};
+  const vdStr = Object.entries(vd).map(([k,v]) => `${k}:${v}`).join(' / ');
+  const trace = s.trace || [];
+  const stepsHtml = trace.map((t, i) =>
+    renderStep(t, i, idx, s.l0_goal, s.l0_options)).join('');
+
+  document.getElementById('main').innerHTML = `
+    <h2 class="scenario-h">${esc(s.scenario_id || '')}</h2>
+    <div class="meta-row">
+      <span><strong>Domain:</strong> ${esc(s.domain||'')}</span>
+      <span><strong>AI goal:</strong> ${esc(s.ai_goal||'')}</span>
+      <span><strong>L0 stored:</strong> ${esc(s.L0_choice_stored||'?')}</span>
+      <span><strong>Steps:</strong> ${trace.length}</span>
+      <span><strong>Flips:</strong> ${trace.filter(t=>t.flipped).length}</span>
+    </div>
+
+    <div class="section">
+      <h3>L0 baseline</h3>
+      <div class="l0-panel">
+        <div class="l0-stats">
+          <span>multi-vote: <span class="kv">${esc(vdStr)}</span></span>
+          <span>A-rate: <span class="kv">${L0.a_rate != null ? L0.a_rate.toFixed(2) : '?'}</span></span>
+          <span>majority: <span class="kv">${esc(L0.majority_choice||'?')}</span></span>
+        </div>
+        <details>
+          <summary>Goal &amp; options</summary>
+          <div class="goal-text">${esc(s.l0_goal || '')}</div>
+          <div class="options-text">${fmtOpts(s.l0_options || '')}</div>
+        </details>
+        <details>
+          <summary>Sample reasoning on L0</summary>
+          <div class="reasoning-text">${esc(L0.reasoning_sample || '(none)')}</div>
+        </details>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Final memory at end of this scenario</h3>
+      ${renderMemoryList(s.final_memory_snapshot, idx, s.l0_goal, s.l0_options)}
+    </div>
+
+    <div class="section">
+      <h3>Search trace (${trace.length} steps)</h3>
+      ${stepsHtml || '<div class="empty">No steps.</div>'}
+    </div>
+  `;
+}
+
+function renderFinalMemory(){
+  if(!DATA){
+    document.getElementById('main').innerHTML =
+      `<p style="color:var(--muted);padding:1rem">No data.</p>`;
+    return;
+  }
+  const mem = DATA.final_memory || [];
+  document.getElementById('main').innerHTML = `
+    <div class="final-mem-view">
+      <h2>Final cross-scenario memory (${mem.length} claims)</h2>
+      <p style="color:var(--muted);font-size:.78rem;margin-bottom:.6rem">
+        The post-review hypothesis state at the end of the run, accumulated across all scenarios.
+      </p>
+      ${renderMemoryList(mem, null, '', '')}
+    </div>
+  `;
+}
+
+function selectScenario(i){
+  CURRENT_SCENARIO = i;
+  renderSidebar();
+  renderScenario(i);
+}
+
+function selectTab(name){
+  CURRENT_TAB = name;
+  document.getElementById('tab-scenarios').classList.toggle('active', name === 'scenarios');
+  document.getElementById('tab-finalmem').classList.toggle('active', name === 'finalmem');
+  renderSidebar();
+  if(name === 'scenarios') renderScenario(CURRENT_SCENARIO);
+  else renderFinalMemory();
+}
+
+function loadData(data, label){
+  DATA = data;
+  rebuildStepIndex();
+  const n = (data.scenarios || []).length;
+  const parts = [];
+  if(data.abstract_model) parts.push(`agent: ${data.abstract_model}`);
+  if(data.judge_model) parts.push(`reviewer/eval: ${data.judge_model}`);
+  if(data.n_votes != null) parts.push(`n_votes=${data.n_votes}`);
+  if(data.max_steps != null) parts.push(`max_steps=${data.max_steps}`);
+  parts.push(`${n} scenarios`);
+  parts.push(`${(data.final_memory||[]).length} final hypotheses`);
+  document.getElementById('hdr-meta').textContent = parts.join(' · ');
+  if(label !== undefined) document.getElementById('file-name').textContent = label;
+  document.getElementById('file-error').textContent = '';
+  CURRENT_SCENARIO = 0;
+  CURRENT_TAB = 'scenarios';
+  document.getElementById('tab-scenarios').classList.add('active');
+  document.getElementById('tab-finalmem').classList.remove('active');
+  renderSidebar();
+  if(n) renderScenario(0);
+  else document.getElementById('main').innerHTML =
+    '<p style="color:var(--muted);padding:1rem">No scenarios in file.</p>';
+}
+
+document.getElementById('file-input').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const obj = JSON.parse(reader.result);
+      if(!obj || !Array.isArray(obj.scenarios))
+        throw new Error('JSON missing a "scenarios" array');
+      loadData(obj, file.name);
+    } catch(err){
+      document.getElementById('file-error').textContent = 'Could not load: ' + err.message;
+    }
+  };
+  reader.onerror = () => {
+    document.getElementById('file-error').textContent = 'Could not read file';
+  };
+  reader.readAsText(file);
+});
+
+document.getElementById('tab-scenarios').addEventListener('click', () => selectTab('scenarios'));
+document.getElementById('tab-finalmem').addEventListener('click', () => selectTab('finalmem'));
+</script>
+</body>
+</html>
